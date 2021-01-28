@@ -208,7 +208,7 @@ var Tag = function(name, environment){
 
 var env_check = function(environment, action){
 	if(environments.has(environment)){
-		action();
+		return action();
 	}else{
 		throw new ReferenceError(`escs environment (${environment}) does not exist`);
 	}
@@ -217,17 +217,17 @@ var env_check = function(environment, action){
 module.exports = {
 	add:{
 		entity: (name, environment)=>{
-			env_check(environment, ()=>{
+			return env_check(environment, ()=>{
 				return new Entity(name, environment);
 			})
 		},
 		component: (name, environment, init)=>{
-			env_check(environment, ()=>{
+			return env_check(environment, ()=>{
 				return new Component(name, environment, init);
 			})
 		},
 		system: (name, environment, run)=>{
-			env_check(environment, ()=>{
+			return env_check(environment, ()=>{
 				return new System(name, environment, run);
 			})
 		},
@@ -245,17 +245,17 @@ module.exports = {
 	},
 	get: {
 		entity: (name, environment)=>{
-			env_check(environment, ()=>{
+			return env_check(environment, ()=>{
 				return environments.get(environment).entities.get(name);
 			})
 		},
 		component: (name, environment)=>{
-			env_check(environment, ()=>{
+			return env_check(environment, ()=>{
 				return environments.get(environment).components.get(name);
 			})
 		},
 		system: (name, environment)=>{
-			env_check(environment, ()=>{
+			return env_check(environment, ()=>{
 				return environments.get(environment).systems.get(name);
 			})
 		},
