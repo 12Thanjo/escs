@@ -206,16 +206,30 @@ var Tag = function(name, environment){
 }
 
 
+var env_check = function(environment, action){
+	if(environments.has(environment)){
+		action();
+	}else{
+		throw new ReferenceError(`escs environment (${environment}) does not exist`);
+	}
+}
+
 module.exports = {
 	add:{
 		entity: (name, environment)=>{
-			return new Entity(name, environment);
+			env_check(environment, ()=>{
+				return new Entity(name, environment);
+			})
 		},
 		component: (name, environment, init)=>{
-			return new Component(name, environment, init);
+			env_check(environment, ()=>{
+				return new Component(name, environment, init);
+			})
 		},
 		system: (name, environment, run)=>{
-			return new System(name, environment, run);
+			env_check(environment, ()=>{
+				return new System(name, environment, run);
+			})
 		},
 		environment: (name)=>{
 			return new Environment(name);
@@ -224,18 +238,26 @@ module.exports = {
 			new Singleton(name, obj);
 		},
 		tag: (name, environment)=>{
-			new Tag(name, environment);
+			env_check(environment, ()=>{
+				new Tag(name, environment);
+			});
 		}
 	},
 	get: {
 		entity: (name, environment)=>{
-			return environments.get(environment).entities.get(name);
+			env_check(environment, ()=>{
+				return environments.get(environment).entities.get(name);
+			})
 		},
 		component: (name, environment)=>{
-			return environments.get(environment).components.get(name);
+			env_check(environment, ()=>{
+				return environments.get(environment).components.get(name);
+			})
 		},
 		system: (name, environment)=>{
-			return environments.get(environment).systems.get(name);
+			env_check(environment, ()=>{
+				return environments.get(environment).systems.get(name);
+			})
 		},
 		environment: (name)=>{
 			return environments.get(name);
@@ -245,22 +267,22 @@ module.exports = {
 		}
 	},
 	delete: {
-		entity: (name, environment)=>{
+		entity: (name)=>{
 			entities.delete(name);
 		},
-		component: (name, environment)=>{
+		component: (name)=>{
 			components.delete(name);
 		},
-		system: (name, environment)=>{
+		system: (name)=>{
 			systems.delete(name);
 		},
-		environment: (name, environment)=>{
+		environment: (name)=>{
 			environments.delete(name);
 		},
 		singleton: (name)=>{
 			singletons.delete(name);
 		},
-		tag: (tag, environment)=>{
+		tag: (tag)=>{
 			tags.delete(tag);
 		}
 	},
