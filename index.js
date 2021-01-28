@@ -36,6 +36,9 @@ var Environment = function(name){
 			component.entities.forEach((entity)=>{
 				var match = true;
 				for(var i = components.length - 1; i>=0; i--){
+					if(!this.components.has(components[i])){
+						throw new ReferenceError(`component (${components}) does not exist in environment (${this.name})`);
+					}
 					if(!entity.components.has(components[i])){
 						match = false;
 						break;
@@ -48,6 +51,9 @@ var Environment = function(name){
 			});
 			return output;
 		}else{
+			if(!this.components.has(components)){
+				throw new ReferenceError(`component (${components}) does not exist in environment (${this.name})`);
+			}
 			return Array.from(this.components.get(components).entities.values());
 		}
 	}
@@ -59,6 +65,9 @@ var Environment = function(name){
 			component.entities.forEach((entity)=>{
 				var match = true;
 				for(var i = tags.length - 1; i>=0; i--){
+					if(!this.tags.has(tags[i])){
+						throw new ReferenceError(`tag (${tags}) does not exist in environment (${this.name})`);
+					}
 					if(!entity.tags.has(tags[i])){
 						match = false;
 						break;
@@ -71,6 +80,9 @@ var Environment = function(name){
 			});
 			return output;
 		}else{
+			if(!this.tags.has(tags)){
+				throw new ReferenceError(`tag (${tags}) does not exist in environment (${this.name})`);
+			}
 			return Array.from(this.tags.get(tags).entities.values());
 		}
 	}
@@ -96,28 +108,35 @@ var Entity = function(name, environment){
 	this.components = new Set();
 	this.tags = new Set();
 	this.environment = environment;
-	if(environments.has(environment)){
-		var env = environments.get(environment);
-		if(!env.entities.has(name)){
-			env.entities.set(name, this);
-		}else{
-			console.warn(`entity "${name}" was already set and has been overwritten`);
-		}
+	var env = environments.get(environment);
+	if(!env.entities.has(name)){
+		env.entities.set(name, this);
 	}else{
-		console.error(`environment "${environment}" is not set`);
+		console.warn(`entity "${name}" was already set and has been overwritten`);
 	}
 
 	this.addComponent = function(component_name, ...parameters){
 		this.components.add(component_name);
-		environments.get(this.environment).components.get(component_name).addEntity(this, ...parameters);
+		var component_target = environments.get(this.environment).components;
+		if(!component_target.has(component_name)){
+			throw new ReferenceError(`component (${component_name}) in environment (${this.environment}) is not set`);
+		}
+		component_target.get(component_name).addEntity(this, ...parameters);
 		return this;
 	}
 
 	this.getComponent = function(component_name){
-		return environments.get(this.environment).components.get(component_name).properties.get(this.name);
+		var component_target = environments.get(this.environment).components;
+		if(!this.components.has(component_name)){
+			throw new ReferenceError(`entity (${name}) does not have component ${component_name}`);
+		}
+		return component_target.get(component_name).properties.get(this.name);
 	}
 
 	this.removeComponent = function(component_name){
+		if(!this.components.has(component_name)){
+			throw new ReferenceError(`entity (${name}) does not have component ${component_name}`);
+		}
 		this.components.delete(component_name);
 		environments.get(this.environment).components.get(component_name).removeEntity(this);	
 	}
@@ -125,7 +144,11 @@ var Entity = function(name, environment){
 
 	this.addTag = function(tag_name){
 		this.tags.add(tag_name);
-		environments.get(this.environment).tags.get(tag_name).addEntity(this);
+		var env_target = environments.get(this.environment).tags;
+		if(!env_target.has(tag_name)){
+			throw new ReferenceError(`tag (${tag_name}) in environment (${this.environment}) is not set`);
+		}
+		env_target.get(tag_name).addEntity(this);
 		return this;
 	}
 
@@ -134,6 +157,9 @@ var Entity = function(name, environment){
 	}
 
 	this.removeTag = function(tag_name){
+		if(!this.tags.has(component_name)){
+			throw new ReferenceError(`entity (${name}) does not have tag ${component_name}`);
+		}
 		this.tags.delete(tag_name);
 		environments.get(this.environment).tags.get(tag_name).removeEntity(this);	
 	}
@@ -148,7 +174,7 @@ var Component = function(name, environment, init){
 	if(environments.has(environment)){
 		environments.get(environment).components.set(name, this);
 	}else{
-		console.error(`environment ${environment} is not set`);
+		throw new ReferenceError(`environment (${environment}) is not set`);
 	}
 
 	this.onChange = ()=>{};
@@ -159,6 +185,9 @@ var Component = function(name, environment, init){
 	}
 
 	this.removeEntity = function(entity){
+		if(!this.entities.has(entity.name)){
+			throw new ReferenceError(`component (${this.name}) in environment (${environment}) is not attached to any entity with name (${entity.name})`);
+		}
 		this.entities.delete(entity.name);
 		this.entities.delete(entity.name);
 	}
