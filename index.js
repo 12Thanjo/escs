@@ -1,14 +1,6 @@
-/*
-* @name escs
-* @type head
-* @description An adaptation of an entity component system. escs (pronounced "essex") stands for Entity, Structure, Component, System
-*/
-
-
-
-
 //event emitting object
-var EEO = function(obj, event){
+var EEO = function(entity, obj, event){
+	this.entity = entity;
 	this.values = obj;
 	this.event = event;
 	var keys = Object.keys(obj);
@@ -19,101 +11,151 @@ var EEO = function(obj, event){
 				return this.values[key];
 			}, set: (val)=>{
 				this.values[key] = val;
-				this.event(key, val);
+				this.event(this.entity, key, val);
 			}
 		});
 	});
 }
 
+var environments = new Map();
+var Environment = function(name){
+	this.name = name;
+	this.entities = new Map();
+	this.components = new Map();
+	this.systems = new Map();
+	this.tags = new Map();
+
+	this.getEntity = function(name){
+		return this.entities.get(name);
+	}
+
+	this.getEntities = function(components){
+		if(typeof components != "string"){
+			var component = this.components.get(components.shift());
+			var output = [];
+			component.entities.forEach((entity)=>{
+				var match = true;
+				for(var i = components.length - 1; i>=0; i--){
+					if(!entity.components.has(components[i])){
+						match = false;
+						break;
+					}
+				}
+
+				if(match){
+					output.push(entity);
+				}
+			});
+			return output;
+		}else{
+			return Array.from(this.components.get(components).entities.values());
+		}
+	}
+
+	this.getEntitiesTag = function(tags){
+		if(typeof tags != "string"){
+			var component = this.tags.get(tags.shift());
+			var output = [];
+			component.entities.forEach((entity)=>{
+				var match = true;
+				for(var i = tags.length - 1; i>=0; i--){
+					if(!entity.tags.has(tags[i])){
+						match = false;
+						break;
+					}
+				}
+
+				if(match){
+					output.push(entity);
+				}
+			});
+			return output;
+		}else{
+			return Array.from(this.tags.get(tags).entities.values());
+		}
+	}
+
+	this.getComponent = function(name){
+		return this.components.get(name);
+	}
+
+	this.getSystem = function(name){
+		return this.systems.get(name);
+	}
+
+	this.getTag = function(name){
+		return this.tags.get(name);
+	}
 
 
+	environments.set(name, this);
+}
 
-/*
-* @name Entity
-* @type obj
-* @description Entity
-* @param {name}{String or Number}{unique name of the Entity}
-*/
-var Entity = function(name){
+var Entity = function(name, environment){
 	this.name = name;
 	this.components = new Set();
+	this.tags = new Set();
+	this.environment = environment;
+	if(environments.has(environment)){
+		var env = environments.get(environment);
+		if(!env.entities.has(name)){
+			env.entities.set(name, this);
+		}else{
+			console.warn(`entity "${name}" was already set and has been overwritten`);
+		}
+	}else{
+		console.error(`environment "${environment}" is not set`);
+	}
 
-	/*
-	* @name addComponent
-	* @type method
-	* @description adds a Component to the Entity 
-	* @parent Entity
-	* @param {component_name}{String or Number}{name of the Component}
-	* @param {...parameters}{params}{parameters to pass to the Component creation}
-	*/
 	this.addComponent = function(component_name, ...parameters){
 		this.components.add(component_name);
-		components.get(component_name).addEntity(this, ...parameters);
+		environments.get(this.environment).components.get(component_name).addEntity(this, ...parameters);
 		return this;
 	}
 
-	/*
-	* @name getComponent
-	* @type method
-	* @description returns the value of a Component
-	* @parent Entity
-	* @param {component_name}{String or Number}{name of the Component}
-	*/
 	this.getComponent = function(component_name){
-		return components.get(component_name).properties.get(this.name);
+		return environments.get(this.environment).components.get(component_name).properties.get(this.name);
 	}
 
-
-	/*
-	* @name removeComponent
-	* @type method
-	* @description removes a Component
-	* @parent Entity
-	* @param {component_name}{String or Number}{name of the Component}
-	*/
 	this.removeComponent = function(component_name){
 		this.components.delete(component_name);
-		components.get(component_name).removeEntity(this);	
+		environments.get(this.environment).components.get(component_name).removeEntity(this);	
+	}
+
+
+	this.addTag = function(tag_name){
+		this.tags.add(tag_name);
+		environments.get(this.environment).tags.get(tag_name).addEntity(this);
+		return this;
+	}
+
+	this.hasTag = function(tag_name){
+		return this.tags.has(tag_name);
+	}
+
+	this.removeTag = function(tag_name){
+		this.tags.delete(tag_name);
+		environments.get(this.environment).tags.get(tag_name).removeEntity(this);	
 	}
 }
 
-
-/*
-* @name Structure
-* @type obj
-* @description structure
-* @param {name}{String or Number}{unique name of the Structure}
-*/
-var Structure = function(name){
-	this.name = name;
-}
-
-
-/*
-* @name Component
-* @type obj
-* @description component
-* @param {name}{String or Number}{unique name of the Structure}
-* @param {init}{Function}{function to run to initialize the component when added to an Entity. The function should return an object, which will be the Entitity's value of this Component}
-*/
-
-/*
-* @name init
-* @type options
-* @parent Component
-* @option {...parameters}{parameters to pass to the Component creation}
-*/
-components = new Map();
-var Component = function(name, init){
+var Component = function(name, environment, init){
 	this.name = name;
 	this.init = init;
 	this.entities = new Map();
 	this.properties = new Map();
+
+	if(environments.has(environment)){
+		environments.get(environment).components.set(name, this);
+	}else{
+		console.error(`environment ${environment} is not set`);
+	}
+
 	this.onChange = ()=>{};
 
 	this.addEntity = function(entity, ...parameters){
 		this.entities.set(entity.name, entity);
-		this.properties.set(entity.name, new EEO(this.init(...parameters), this.onChange));
+		this.properties.set(entity.name, new EEO(entity, this.init(...parameters), this.onChange));
 	}
 
 	this.removeEntity = function(entity){
@@ -121,69 +163,105 @@ var Component = function(name, init){
 		this.entities.delete(entity.name);
 	}
 
-	/*
-	* @name setOnChange
-	* @type method
-	* @description sets the funtion to run when the value of this component type is changed
-	* @parent Component
-	*/
 	this.setOnChange = function(func){
 		this.properties.forEach((prop)=>{
 			prop.event = func;
 		});
 		this.onChange = func;
 	}
-
-	components.set(name, this);
 }
 
-
-/*
-* @name System
-* @type obj
-* @description system
-* @param {entity_types}{String[]}{gets all entities with all of the given components. For optimal performance, the first in the array should be the component that applies to the fewwst entities}
-* @param {run}{function}{function for the system to run. Takes entity as a parameter}
-*/
-var System = function(entity_types, run){
-
-	/*
-	* @name run
-	* @type method
-	* @description runs the system
-	* @parent System
-	*/
-	this.run = function(){
-		// var system_entities = [];
-		components.get(entity_types[0]).entities.forEach((entity)=>{
-			var match = true;
-			for(var i = entity_types.length - 1; i>=1; i--){
-				if(!entity.components.has(entity_types[i])){
-					match = false;
-				}
-			}
-			if(match){
-				// system_entities.push(entity);
-				run(entity);
-			}
-		});
-
+var System = function(name, environment, run){
+	this.name = name;
+	this.run = ()=>{
+		run(environments.get(environment));
+	}
+	if(environments.has(environment)){
+		environments.get(environment).systems.set(name, this);
+	}else{
+		console.error(`environment ${environment} is not set`);
 	}
 }
 
+var singletons = new Map();
+var Singleton = function(name, obj){
+	singletons.set(name, obj);
+}
+
+var tags = new Map();
+var Tag = function(name, environment){
+	this.name = name;
+	this.environment = environment;
+	this.entities = new Map();
+	tags.set(name, this);
+	environments.get(environment).tags.set(name, this);
+
+	this.addEntity = function(entity){
+		this.entities.set(entity.name, entity);
+	}
+
+	this.removeEntity = function(entity){
+		this.entities.delete(entity.name);
+	}
+}
 
 
 module.exports = {
-	entity: (name)=>{
-		return new Entity(name);
+	add:{
+		entity: (name, environment)=>{
+			return new Entity(name, environment);
+		},
+		component: (name, environment, init)=>{
+			return new Component(name, environment, init);
+		},
+		system: (name, environment, run)=>{
+			return new System(name, environment, run);
+		},
+		environment: (name)=>{
+			return new Environment(name);
+		},
+		singleton: (name, obj)=>{
+			new Singleton(name, obj);
+		},
+		tag: (name, environment)=>{
+			new Tag(name, environment);
+		}
 	},
-	structure: ()=>{
-		return new Structure();
+	get: {
+		entity: (name, environment)=>{
+			return environments.get(environment).entities.get(name);
+		},
+		component: (name, environment)=>{
+			return environments.get(environment).components.get(name);
+		},
+		system: (name, environment)=>{
+			return environments.get(environment).systems.get(name);
+		},
+		environment: (name)=>{
+			return environments.get(name);
+		},
+		singleton: (name)=>{
+			return singletons.get(name);
+		}
 	},
-	component: (name, properties)=>{
-		return new Component(name, properties);
+	delete: {
+		entity: (name, environment)=>{
+			entities.delete(name);
+		},
+		component: (name, environment)=>{
+			components.delete(name);
+		},
+		system: (name, environment)=>{
+			systems.delete(name);
+		},
+		environment: (name, environment)=>{
+			environments.delete(name);
+		},
+		singleton: (name)=>{
+			singletons.delete(name);
+		},
+		tag: (tag, environment)=>{
+			tags.delete(tag);
+		}
 	},
-	system: (entity_types, run)=>{
-		return new System(entity_types, run);
-	}
 }
