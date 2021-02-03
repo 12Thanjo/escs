@@ -112,7 +112,7 @@ var Entity = function(name, environment){
 	if(!env.entities.has(name)){
 		env.entities.set(name, this);
 	}else{
-		console.warn(`entity "${name}" was already set and has been overwritten`);
+		console.warn(`entity (${name}) was already set and has been overwritten`);
 	}
 
 	this.addComponent = function(component_name, ...parameters){
@@ -128,14 +128,14 @@ var Entity = function(name, environment){
 	this.getComponent = function(component_name){
 		var component_target = environments.get(this.environment).components;
 		if(!this.components.has(component_name)){
-			throw new ReferenceError(`entity (${name}) does not have component ${component_name}`);
+			throw new ReferenceError(`entity (${name}) does not have component (${component_name})`);
 		}
 		return component_target.get(component_name).properties.get(this.name);
 	}
 
 	this.removeComponent = function(component_name){
 		if(!this.components.has(component_name)){
-			throw new ReferenceError(`entity (${name}) does not have component ${component_name}`);
+			throw new ReferenceError(`entity (${name}) does not have component (${component_name})`);
 		}
 		this.components.delete(component_name);
 		environments.get(this.environment).components.get(component_name).removeEntity(this);	
@@ -158,7 +158,7 @@ var Entity = function(name, environment){
 
 	this.removeTag = function(tag_name){
 		if(!this.tags.has(component_name)){
-			throw new ReferenceError(`entity (${name}) does not have tag ${component_name}`);
+			throw new ReferenceError(`entity (${name}) does not have tag (${component_name})`);
 		}
 		this.tags.delete(tag_name);
 		environments.get(this.environment).tags.get(tag_name).removeEntity(this);	
@@ -208,7 +208,7 @@ var System = function(name, environment, run){
 	if(environments.has(environment)){
 		environments.get(environment).systems.set(name, this);
 	}else{
-		console.error(`environment ${environment} is not set`);
+		console.error(`environment (${environment}) is not set`);
 	}
 }
 
